@@ -1,0 +1,49 @@
+services:
+  redis_broker:
+    image: redis:alpine
+    networks:
+      - sec_edge_net
+
+  mcp_server:
+      build:
+        context: ./mcp_server
+      volumes:
+        - ./mcp_server/data:/app/data
+      environment:
+        - PYTHONUNBUFFERED=1
+      stdin_open: true
+      tty: true
+      networks:
+        - sec_edge_net
+
+  agent_mec1:
+    build:
+      context: ./agents
+    environment:
+      - MEC_ID=MEC-1
+      - REDIS_HOST=redis_broker
+      - MCP_SERVER_URL=http://mcp_server:8000
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      - mcp_server
+      - redis_broker
+    networks:
+      - sec_edge_net
+
+  agent_mec2:
+    build:
+      context: ./agents
+    environment:
+      - MEC_ID=MEC-2
+      - REDIS_HOST=redis_broker
+      - MCP_SERVER_URL=http://mcp_server:8000
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      - mcp_server
+      - redis_broker
+    networks:
+      - sec_edge_net
+
+networks:
+  sec_edge_net:
+    driver: bridge

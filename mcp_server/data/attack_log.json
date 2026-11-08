@@ -1,0 +1,14 @@
+{
+  "timestamp": "2026-11-03T19:30:00Z",
+  "sensor_id": "UPF-01",
+  "telemetry": [
+    {
+      "src_ip": "10.0.0.55",
+      "dst_ip": "192.168.1.100",
+      "protocol": "TCP",
+      "flags": "SYN",
+      "packet_count": 50000,
+      "classification": "DDoS_Suspected"
+    }
+  ]
+}
