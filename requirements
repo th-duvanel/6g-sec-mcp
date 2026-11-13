@@ -1,0 +1,68 @@
+# EXECUTION CONTEXT AND OBJECTIVE
+Your objective is to WRITE THE CODE and PHYSICALLY CREATE all files in my workspace for a sterile academic experimentation environment (focused on publishing a research paper).
+
+The research evaluates the performance of an LLM-based Intrusion Detection and Prevention System (IDS/IPS) at the edge (MEC Node), comparing two approaches:
+1. Direct Execution IDS: The agent reads raw logs and acts with system privileges (Baseline).
+2. MCP-based IDS: Execution is mediated by a strict standardized interface (Model Context Protocol - MCP).
+
+# DISTRIBUTED INFRASTRUCTURE GUIDELINES (CRITICAL)
+The experiment simulates a MEC (Multi-Access Edge Computing) scenario. To isolate latency metrics:
+- Host A (Edge/Professor's Machine - High RAM): Will run ALL Docker containers (OVS, Traffic Generator, and Python scripts).
+- Host B (Local Notebook - GPU-enabled): Will run ONLY the LLM engine.
+- Connection: The Python code on Host A will consume the AI on Host B via a reverse SSH tunnel ( localhost:11434 ).
+
+# REQUIREMENT 1: NETWORK TOPOLOGY (Docker Compose)
+Create a lightweight docker-compose.yml (using Alpine/Slim images) containing:
+* ovs-node : Container running Open vSwitch (OVS). Simulates the UPF switch of a MEC node. Exposes telemetry/flow logs to a shared local volume.
+* traffic-gen : Container with network tools ( hping3 , ping ). Contains shell scripts to generate continuous benign traffic and trigger TCP SYN Flood attacks against the OVS.
+* agent-env : Last version container to run the AI and MCP scripts, with access to the logs volume.
+
+# ADDENDUM: TRAFFIC GENERATION & ATTACK VECTORS
+Within the traffic-gen container, create a specific folder named /scripts containing:
+1. start_benign_traffic.sh : A script that runs continuously in the background (using iperf3 , ping , and curl in a loop) to simulate normal UE background noise, keeping the OVS logs active.
+2. attack_syn_flood.sh : Uses hping3 to launch a volumetric TCP SYN Flood.
+3. attack_slowloris.sh : Uses slowhttptest (or a simple Python socket script) to simulate a low-rate, stealthy DDoS attack.
+4. attack_port_scan.sh : Uses nmap to simulate aggressive network reconnaissance.
+
+Ensure the Dockerfile for traffic-gen installs these necessary packages ( iperf3 , hping3 , nmap , curl , slowhttptest ). The experiment will be conducted by manually executing these attack scripts inside the running container.
+
+# REQUIREMENT 2: NETWORK ABSTRACTION (Preparing for real 5G/6G)
+To allow future transition from OVS to a real 5G/6G core (OpenAirInterface UPF), isolate network interactions by creating network_adapter.py .
+* It must contain a class/interface abstracting telemetry reading ( get_telemetry_stream ) and actuation ( apply_mitigation ).
+* The current implementation ( OVSAdapter ) will handle OVS logs and ovs-ofctl commands. The rest of the system (MCP and Baseline) must NEVER call OS commands directly, only through this Adapter.
+
+# REQUIREMENT 3: UNIVERSAL MODULAR LLM MODULE
+Create llm_client.py (using the Factory Pattern).
+* Must support Google Gemini (via google-genai ) and local models via Ollama.
+* Configuration via .env (default: LLM_BASE_URL=http://host.docker.internal:11434/v1 to access the SSH tunnel).
+* Must return a standardized output containing: the text response, prompt_tokens , completion_tokens , and "Inference Latency" (in ms).
+
+# REQUIREMENT 4: BASELINE SCENARIO (Static IDS without MCP)
+Create ids_baseline.py .
+* Uses the Adapter to pull raw logs.
+* Sends the raw log and OVS documentation snippet in the prompt to the LLM.
+* The LLM generates the exact mitigation code (e.g., ovs-ofctl add-flow... ).
+* The script passes the raw generated string to the Adapter for execution.
+
+# REQUIREMENT 5: PROPOSED SCENARIO (Autonomous IDS via MCP)
+Force local Client-Server isolation:
+* mcp_server.py : Uses the Adapter to read raw logs, filters noise, and exposes an aggregated JSON Resource .Exposes ONLY ONE Tool named block_ip(target_ip). The Tool acts as a Sandbox (RBAC, regex validation) and triggers the mitigation abstraction in the Adapter.
+* ids_mcp_client.py : The IDS Agent. Reads the JSON Resource (saving tokens), sends it to the LLM asking for the mitigation intent, and executes the block_ip Tool .
+
+# REQUIREMENT 6: METRICS AND OBSERVABILITY (Crucial for the paper)
+Inject high-precision timestamps ( time.perf_counter() ) to measure:
+1. Deployment Delay: From anomaly detection to the command finishing in the Adapter (in ms).
+2. Inference Latency: Time waiting for the LLM response (network round-trip to Host B).
+3. Control-Plane Signaling Overhead: Total byte count of metadata, prompt wrappers, and tool round-trips generated per incident.
+5. Token Usage: (raw logs vs. JSON).
+6. Edge Overhead: Use psutil to record peak CPU (%) and RAM (MB) usage of the agent-env container.
+* Save all data iteratively in metrics_results.csv (append mode).
+
+# DELIVERABLES AND CODING STANDARDS (REQUIRED ACTION)
+You MUST physically write the following files to the workspace:
+1. Dockerfile , docker-compose.yml , .env.example , requirements.txt 
+2. network_adapter.py , llm_client.py , ids_baseline.py , mcp_server.py , ids_mcp_client.py 
+3. Bash scripts for the traffic-gen container.
+4. If necessary, you can create more scripts, files or folders for better organization
+
+Python Best Practices Rule: ALL code, variables, and comments MUST be written in English. You must strictly use Python type hints and include simple, clear docstrings for all classes and functions. Ensure robust error handling (try/except) and absolute focus on millisecond precision for the latency metrics.
